@@ -31,6 +31,6 @@ unsafe fn unlink_page<T>() -> *mut T {
     let address = FREELIST as *mut _;
     FREELIST = (*FREELIST).0;
     #[cfg(target_arch = "x86_64")]
-    (*(address as *mut [u8;4096])).fill(0);
+    (*(address as *mut [u8; 4096])).fill(0);
     address
 }

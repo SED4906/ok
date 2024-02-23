@@ -5,8 +5,8 @@ use x86::controlregs::cr3;
 use super::{link_page, unlink_page};
 
 static MEMMAP_REQUEST: limine::request::MemoryMapRequest = limine::request::MemoryMapRequest::new();
-const HEAP_START: u64 = 320u64<<39;
-const HEAP_DEFAULT_SIZE: usize = 4096usize*1024;
+const HEAP_START: u64 = 320u64 << 39;
+const HEAP_DEFAULT_SIZE: usize = 4096usize * 1024;
 #[global_allocator]
 static HEAP: LockedHeap = LockedHeap::empty();
 
@@ -18,17 +18,28 @@ static HEAP: LockedHeap = LockedHeap::empty();
 pub fn mm_init() {
     let entries = MEMMAP_REQUEST.get_response().unwrap().entries();
     for entry in entries {
-        if entry.entry_type != EntryType::USABLE {continue;}
-        unsafe {free_region(entry.base, entry.length);}
+        if entry.entry_type != EntryType::USABLE {
+            continue;
+        }
+        unsafe {
+            free_region(entry.base, entry.length);
+        }
     }
     for heap_page in 0..1024 {
         unsafe {
             let page = unlink_page::<u8>();
-            if page.is_null() {panic!("not enough memory")}
-            map_page(cr3(), HEAP_START + 4096*heap_page, page as u64, 3, 4096);
+            if page.is_null() {
+                panic!("not enough memory")
+            }
+            map_page(cr3(), HEAP_START + 4096 * heap_page, page as u64, 3, 4096);
         }
     }
-    unsafe{HEAP.lock().init(((0xffffu64<<48)+HEAP_START) as *mut u8, HEAP_DEFAULT_SIZE)};
+    unsafe {
+        HEAP.lock().init(
+            ((0xffffu64 << 48) + HEAP_START) as *mut u8,
+            HEAP_DEFAULT_SIZE,
+        )
+    };
 }
 
 /// Frees a contiguous region of memory.
@@ -55,9 +66,9 @@ pub unsafe fn map_page(pagemap: u64, v_address: u64, p_address: u64, flags: u64,
             let level3 = get_next_level(pagemap, v_address, 3);
             let level2 = get_next_level(level3, v_address, 2);
             let level1 = get_next_level(level2, v_address, 1);
-            (*(level1 as *mut [u64;512]))[(v_address as usize >> 12) & 0x1FF] = p_address | flags;
+            (*(level1 as *mut [u64; 512]))[(v_address as usize >> 12) & 0x1FF] = p_address | flags;
         }
-        _ => panic!("invalid page size")
+        _ => panic!("invalid page size"),
     }
 }
 
@@ -67,10 +78,11 @@ pub unsafe fn map_page(pagemap: u64, v_address: u64, p_address: u64, flags: u64,
 ///
 /// Pagemap must be valid.
 pub unsafe fn get_next_level(pagemap: u64, v_address: u64, level: u64) -> u64 {
-    let result = (*(pagemap as *mut [u64;512]))[(v_address as usize >> (12 + 9*level)) & 0x1FF];
+    let result = (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF];
     if result & 1 == 0 {
-        let page = unlink_page::<[u64;512]>();
-        (*(pagemap as *mut [u64;512]))[(v_address as usize >> (12 + 9*level)) & 0x1FF] = page as u64 | 7;
+        let page = unlink_page::<[u64; 512]>();
+        (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF] =
+            page as u64 | 7;
         return page as u64;
     }
     result & !0xFFF
