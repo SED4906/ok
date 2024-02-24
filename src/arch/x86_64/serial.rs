@@ -58,13 +58,11 @@ pub fn _serial_print(args: fmt::Arguments) {
     fmt::Write::write_fmt(&mut *writer, args).ok();
 }
 
-#[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! print {
     ($($t:tt)*) => { $crate::serial::_serial_print(format_args!($($t)*)) };
 }
 
-#[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! println {
     ()          => { $crate::print!("\n"); };

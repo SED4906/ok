@@ -13,7 +13,7 @@ pub mod arch;
 /// # Safety
 ///
 /// The memory must not already be in use.
-unsafe fn link_page<T>(address: *mut T) {
+pub unsafe fn link_page<T>(address: *mut T) {
     #[cfg(target_arch = "x86_64")]
     return_if!(!address.is_aligned_to(4096));
     let page = address as *mut Freelist;
@@ -26,7 +26,7 @@ unsafe fn link_page<T>(address: *mut T) {
 /// # Safety
 ///
 /// Returns `null_mut()` if the freelist runs out of memory.
-unsafe fn unlink_page<T>() -> *mut T {
+pub unsafe fn unlink_page<T>() -> *mut T {
     return_if!(FREELIST.is_null(), null_mut());
     let address = FREELIST as *mut _;
     FREELIST = (*FREELIST).0;
