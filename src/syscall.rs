@@ -1,6 +1,6 @@
 use core::alloc::Layout;
 use alloc::{collections::BTreeMap, string::ToString};
-use crate::{println,print};
+use crate::{debug_println, print, println, return_if};
 use alloc::string::String;
 use core::ptr::addr_of_mut;
 static mut C_ALLOCATIONS: BTreeMap<*mut u8, Layout> = BTreeMap::new();
@@ -145,38 +145,39 @@ fn cstr_len(ptr: *const u8) -> usize {
 
 #[no_mangle]
 extern "C" fn open(pathname: *const u8, flags: i32, mode: i32) -> i32 {
-    println!("(open)");
+    debug_println!("(open)");
     let name = String::from_utf8_lossy(unsafe{core::slice::from_raw_parts(pathname, cstr_len(pathname))}).to_string();
     crate::fs::open(name, flags & 0o2000 == 1 , flags & 0o200 == 1, flags & 0o1000 == 1) as i32
 }
 
 #[no_mangle]
 extern "C" fn close(file_descriptor: i32) -> i32 {
-    println!("(close)");
+    debug_println!("(close)");
+    crate::fs::close(file_descriptor as isize);
     return 0;
 }
 
 #[no_mangle]
 extern "C" fn fcntl(fd: i32, cmd: i32, arg: i32) -> i32 {
-    println!("(fcntl)");
+    debug_println!("(fcntl)");
     return 0;
 }
 
 #[no_mangle]
 extern "C" fn fstat(fd: i32, buf: *mut u8) -> i32 {
-    println!("(fstat)");
+    debug_println!("(fstat)");
     return 0;
 }
 
 #[no_mangle]
 extern "C" fn lseek(fd: i32, offset: i64, whence: i32) -> i64 {
-    println!("(lseek)");
-    return 0;
+    debug_println!("(lseek)");
+    crate::fs::seek(fd as isize, offset as isize, whence) as i64
 }
 
 #[no_mangle]
 extern "C" fn openat(dirfd: i32, pathname: *const u8, flags: i32, mode: i32) -> i32 {
-    println!("(openat)");
+    debug_println!("(openat)");
     return -1;
 }
 
@@ -187,38 +188,69 @@ struct IOVector {
 }
 
 #[no_mangle]
-extern "C" fn readv(fd: i32, bufs: *mut u8, bufcnt: i32) -> i64 {
-    println!("(readv)");
-    return 0;
+extern "C" fn readv(fd: i32, bufs: *mut IOVector, bufcnt: i32) -> i64 {
+    debug_println!("(readv)");
+    match fd {
+        1|2 => 0,
+        0 => 0,
+        handle => {
+            let mut count = 0;
+            unsafe {
+                let iovecs = core::slice::from_raw_parts(bufs, bufcnt as usize);
+                for iovec in iovecs {
+                    let mut slice = core::slice::from_raw_parts_mut(iovec.base, iovec.size);
+                    let wasread = crate::fs::read(handle as isize, slice);
+                    return_if!(wasread < 0, wasread as i64);
+                    count += wasread;
+                }
+            }
+            count as i64
+        }
+    }
 }
 
 #[no_mangle]
 extern "C" fn writev(fd: i32, bufs: *mut IOVector, bufcnt: i32) -> i64 {
-    println!("(writev)");
+    debug_println!("(writev)");
     match fd {
-        1 => {
+        1|2 => {
+            let mut count = 0;
             unsafe {
                 let iovecs = core::slice::from_raw_parts(bufs, bufcnt as usize);
                 for iovec in iovecs {
                     let slice = core::slice::from_raw_parts(iovec.base, iovec.size);
                     print!("{}",String::from_utf8_lossy(slice));
+                    count += iovec.size;
                 }
             }
-            bufcnt as i64
+            count as i64
         }
-        _ => 0
+        0 => 0,
+        handle => {
+            let mut count = 0;
+            unsafe {
+                let iovecs = core::slice::from_raw_parts(bufs, bufcnt as usize);
+                for iovec in iovecs {
+                    let slice = core::slice::from_raw_parts(iovec.base, iovec.size);
+                    let written = crate::fs::write(handle as isize, slice);
+                    return_if!(written < 0, written as i64);
+                    count += written;
+                }
+            }
+            count as i64
+        }
     }
 }
 
 #[no_mangle]
 extern "C" fn fdatasync(fd: i32) -> i32 {
-    println!("(fdatasync)");
+    debug_println!("(fdatasync)");
     return 0;
 }
 
 #[no_mangle]
 extern "C" fn getrandom() -> u64 {
-    println!("(getrandom)");
+    debug_println!("(getrandom)");
     let mut random_value: u64 = 0;
     unsafe{x86::random::rdrand64(&mut random_value);}
     random_value
@@ -226,12 +258,12 @@ extern "C" fn getrandom() -> u64 {
 
 #[no_mangle]
 extern "C" fn clock_getres(clockid: i32, res: *mut u8) -> i32 {
-    println!("(clock_getres)");
+    debug_println!("(clock_getres)");
     return -1;
 }
 
 #[no_mangle]
 extern "C" fn clock_gettime(clockid: i32, tp: *mut u8) -> i32 {
-    println!("(clock_gettime)");
+    debug_println!("(clock_gettime)");
     return -1;
 }

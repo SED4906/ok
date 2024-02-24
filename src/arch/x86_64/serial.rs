@@ -69,3 +69,18 @@ macro_rules! println {
     // On nightly, `format_args_nl!` could also be used.
     ($($t:tt)*) => { $crate::print!("{}\n", format_args!($($t)*)) };
 }
+
+#[cfg(debug_assertions)]
+#[macro_export]
+macro_rules! debug_println {
+    ()          => { $crate::print!("\n"); };
+    // On nightly, `format_args_nl!` could also be used.
+    ($($t:tt)*) => { $crate::print!("{}\n", format_args!($($t)*)) };
+}
+
+#[cfg(not(debug_assertions))]
+#[macro_export]
+macro_rules! debug_println {
+    () => {};
+    ($($t:tt)*) => {};
+}
