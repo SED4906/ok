@@ -8,7 +8,7 @@ use super::{link_page, unlink_page};
 
 static MEMMAP_REQUEST: limine::request::MemoryMapRequest = limine::request::MemoryMapRequest::new();
 const HEAP_START: u64 = 320u64 << 39;
-const HEAP_DEFAULT_SIZE: usize = 4096usize * 1024;
+//const HEAP_DEFAULT_SIZE: usize = 4096usize * 1024;
 #[global_allocator]
 static HEAP: LockedHeap = LockedHeap::empty();
 
@@ -88,7 +88,7 @@ pub unsafe fn get_next_level(pagemap: u64, v_address: u64, level: u64) -> u64 {
     let result = (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF];
     if result & 1 == 0 {
         let page = unlink_page::<[u64; 512]>();
-        return_if!(page.is_null(),0);
+        return_if!(page.is_null(), 0);
         (*page).fill(0);
         (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF] =
             page as u64 | 7;
