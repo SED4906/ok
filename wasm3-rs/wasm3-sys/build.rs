@@ -104,7 +104,7 @@ fn gen_bindings() {
                 ),
                 "-Dd_m3LogOutput=0",
                 "-Iwasm3/source",
-                "-I../../musl-install/usr/local/musl/include",
+                "-I../../musl",
             ]
             .iter(),
         )

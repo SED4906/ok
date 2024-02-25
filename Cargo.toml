@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 linked_list_allocator = "0.10"
-wasm3 = { path="wasm3-rs-modified", default-features = false, features = ["wasi", "build-bindgen"]}
+wasm3 = { path="wasm3-rs", default-features = false, features = ["wasi", "build-bindgen"]}
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 limine = "0.2"
