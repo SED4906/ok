@@ -2,6 +2,8 @@ use limine::memory_map::EntryType;
 use linked_list_allocator::LockedHeap;
 use x86::controlregs::cr3;
 
+use crate::return_if;
+
 use super::{link_page, unlink_page};
 
 static MEMMAP_REQUEST: limine::request::MemoryMapRequest = limine::request::MemoryMapRequest::new();
@@ -25,19 +27,21 @@ pub fn mm_init() {
             free_region(entry.base, entry.length);
         }
     }
-    for heap_page in 0..1024 {
+    let mut heap_page = 0;
+    loop {
         unsafe {
             let page = unlink_page::<u8>();
             if page.is_null() {
-                panic!("not enough memory")
+                break;
             }
             map_page(cr3(), HEAP_START + 4096 * heap_page, page as u64, 3, 4096);
         }
+        heap_page += 1;
     }
     unsafe {
         HEAP.lock().init(
             ((0xffffu64 << 48) + HEAP_START) as *mut u8,
-            HEAP_DEFAULT_SIZE,
+            (heap_page * 4096) as usize,
         )
     };
 }
@@ -64,8 +68,11 @@ pub unsafe fn map_page(pagemap: u64, v_address: u64, p_address: u64, flags: u64,
     match size {
         4096 => {
             let level3 = get_next_level(pagemap, v_address, 3);
+            return_if!(level3 == 0);
             let level2 = get_next_level(level3, v_address, 2);
+            return_if!(level2 == 0);
             let level1 = get_next_level(level2, v_address, 1);
+            return_if!(level1 == 0);
             (*(level1 as *mut [u64; 512]))[(v_address as usize >> 12) & 0x1FF] = p_address | flags;
         }
         _ => panic!("invalid page size"),
@@ -81,6 +88,8 @@ pub unsafe fn get_next_level(pagemap: u64, v_address: u64, level: u64) -> u64 {
     let result = (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF];
     if result & 1 == 0 {
         let page = unlink_page::<[u64; 512]>();
+        return_if!(page.is_null(),0);
+        (*page).fill(0);
         (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF] =
             page as u64 | 7;
         return page as u64;

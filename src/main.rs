@@ -38,11 +38,10 @@ extern "C" fn _start() -> ! {
     println!("cpu");
     let env = Environment::new().expect("Unable to create environment");
     let rt = env
-        .create_runtime(1024)
+        .create_runtime(1024*64)
         .expect("Unable to create runtime");
     let module = Module::parse(&env, &include_bytes!("wasm_print.wasm")[..])
         .expect("Unable to parse module");
-
     let mut module = rt.load_module(module).expect("Unable to load module");
     module.link_wasi().expect("Failed to link wasi");
     let func = module

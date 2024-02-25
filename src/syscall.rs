@@ -1,5 +1,6 @@
 use core::alloc::Layout;
 use alloc::{collections::BTreeMap, string::ToString};
+use wasm3::make_func_wrapper;
 use crate::{debug_println, print, println, return_if};
 use alloc::string::String;
 use core::ptr::addr_of_mut;
