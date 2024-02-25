@@ -12,7 +12,7 @@ static mut FILE_SYSTEM: BTreeMap<String, Vec<u8>> = BTreeMap::new();
 static mut HANDLES: BTreeMap<isize, OpenFile> = BTreeMap::new();
 static mut NEXT_HANDLE: isize = 3;
 
-pub fn fs_init() {}
+//pub fn fs_init() {}
 
 pub fn open(name: String, append: bool, exclude: bool, truncate: bool) -> isize {
     unsafe {

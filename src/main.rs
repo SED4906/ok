@@ -10,12 +10,13 @@
 
 #[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/cpu.rs")]
 mod cpu;
-pub mod fs;
+mod fs;
 mod helper;
 mod irq;
 mod mm;
 #[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/serial.rs")]
 mod serial;
+#[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/syscall.rs")]
 mod syscall;
 
 extern crate alloc;
@@ -39,6 +40,7 @@ extern "C" fn _start() -> ! {
     println!("irq");
     cpu::cpu_init();
     println!("cpu");
+    // Language runtime below
     let env = Environment::new().expect("Unable to create environment");
     let rt = env
         .create_runtime(1024 * 64)
@@ -51,9 +53,11 @@ extern "C" fn _start() -> ! {
         .find_function::<(), ()>("_start")
         .expect("Unable to find function");
     func.call().unwrap();
+    // Language runtime above
     println!("done!");
     loop {
         unsafe {
+            #[cfg(target_arch = "x86_64")]
             x86::halt();
         }
     }
@@ -66,8 +70,10 @@ unsafe fn rust_panic(info: &PanicInfo) -> ! {
 }
 
 unsafe fn hcf() -> ! {
+    #[cfg(target_arch = "x86_64")]
     x86::irq::disable();
     loop {
+        #[cfg(target_arch = "x86_64")]
         x86::halt();
     }
 }
