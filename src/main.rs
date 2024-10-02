@@ -3,7 +3,7 @@
     core_intrinsics,
     naked_functions,
     abi_x86_interrupt,
-    pointer_is_aligned
+    pointer_is_aligned_to
 )]
 #![no_std]
 #![no_main]

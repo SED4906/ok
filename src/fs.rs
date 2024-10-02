@@ -1,6 +1,7 @@
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
+use spin::Mutex;
 
 pub struct OpenFile {
     path: String,
@@ -8,54 +9,56 @@ pub struct OpenFile {
     data: Vec<u8>,
 }
 
-static mut FILE_SYSTEM: BTreeMap<String, Vec<u8>> = BTreeMap::new();
-static mut HANDLES: BTreeMap<isize, OpenFile> = BTreeMap::new();
-static mut NEXT_HANDLE: isize = 3;
+static FILE_SYSTEM: Mutex<BTreeMap<String, Vec<u8>>> = Mutex::new(BTreeMap::new());
+static HANDLES: Mutex<BTreeMap<isize, OpenFile>> = Mutex::new(BTreeMap::new());
+static NEXT_HANDLE: Mutex<isize> = Mutex::new(3);
 
 //pub fn fs_init() {}
 
 pub fn open(name: String, append: bool, exclude: bool, truncate: bool) -> isize {
-    unsafe {
-        let handle = NEXT_HANDLE;
-        NEXT_HANDLE += 1;
-        if exclude && FILE_SYSTEM.get(&name).is_some() {
-            return -1;
-        }
-        HANDLES.insert(
-            handle,
-            OpenFile {
-                position: if append && !truncate {
-                    match FILE_SYSTEM.get(&name) {
-                        Some(data) => data.len(),
-                        None => 0,
-                    }
-                } else {
-                    0
-                },
-                data: match FILE_SYSTEM.get_mut(&name) {
-                    Some(data) => data.clone(),
-                    None => {
-                        FILE_SYSTEM.insert(name.clone(), Vec::new());
-                        Vec::new()
-                    }
-                },
-                path: name,
-            },
-        );
-        handle
+    let mut next_handle = NEXT_HANDLE.lock();
+    let mut file_system = FILE_SYSTEM.lock();
+    let mut handles = HANDLES.lock();
+    let handle = *next_handle;
+    *next_handle += 1;
+    if exclude && file_system.get(&name).is_some() {
+        return -1;
     }
+    handles.insert(
+        handle,
+        OpenFile {
+            position: if append && !truncate {
+                match file_system.get(&name) {
+                    Some(data) => data.len(),
+                    None => 0,
+                }
+            } else {
+                0
+            },
+            data: match file_system.get_mut(&name) {
+                Some(data) => data.clone(),
+                None => {
+                    file_system.insert(name.clone(), Vec::new());
+                    Vec::new()
+                }
+            },
+            path: name,
+        },
+    );
+    handle
 }
 
 pub fn close(handle: isize) {
-    unsafe {
-        let open_file = HANDLES.get(&handle).unwrap();
-        FILE_SYSTEM.insert(open_file.path.clone(), open_file.data.clone());
-        HANDLES.remove(&handle);
-    }
+    let mut file_system = FILE_SYSTEM.lock();
+    let mut handles = HANDLES.lock();
+    let open_file = handles.get(&handle).unwrap();
+    file_system.insert(open_file.path.clone(), open_file.data.clone());
+    handles.remove(&handle);
 }
 
 pub fn seek(handle: isize, offset: isize, whence: i32) -> isize {
-    match unsafe { HANDLES.get_mut(&handle) } {
+    let mut handles = HANDLES.lock();
+    match handles.get_mut(&handle) {
         Some(open_file) => {
             match whence {
                 0 => open_file.position = offset.max(0) as usize,
@@ -70,7 +73,8 @@ pub fn seek(handle: isize, offset: isize, whence: i32) -> isize {
 }
 
 pub fn write(handle: isize, bytes: &[u8]) -> isize {
-    match unsafe { HANDLES.get_mut(&handle) } {
+    let mut handles = HANDLES.lock();
+    match handles.get_mut(&handle) {
         Some(open_file) => {
             if open_file.position + bytes.len() <= open_file.data.len() {
                 let last_position = open_file.position + bytes.len();
@@ -108,7 +112,8 @@ pub fn write(handle: isize, bytes: &[u8]) -> isize {
 }
 
 pub fn read(handle: isize, bytes: &mut [u8]) -> isize {
-    match unsafe { HANDLES.get_mut(&handle) } {
+    let mut handles = HANDLES.lock();
+    match handles.get_mut(&handle) {
         Some(open_file) => {
             if open_file.position + bytes.len() > open_file.data.len() {
                 let data_len = open_file.data.len();

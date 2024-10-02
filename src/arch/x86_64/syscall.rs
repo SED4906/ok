@@ -3,25 +3,34 @@ use alloc::string::String;
 use alloc::{collections::BTreeMap, string::ToString};
 use core::alloc::Layout;
 use core::ptr::addr_of_mut;
+use spin::Mutex;
 
-static mut C_ALLOCATIONS: BTreeMap<*mut u8, Layout> = BTreeMap::new();
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub struct MutPtr<T>(*mut T);
+
+unsafe impl<T> Send for MutPtr<T> {}
+unsafe impl<T> Sync for MutPtr<T> {}
+
+static C_ALLOCATIONS: Mutex<BTreeMap<MutPtr<u8>, Layout>> = Mutex::new(BTreeMap::new());
 
 #[no_mangle]
 pub extern "C" fn malloc(size: usize) -> *mut u8 {
+    let mut c_allocations = C_ALLOCATIONS.lock();
     unsafe {
         let layout = Layout::from_size_align(size, 1).unwrap();
         let allocation = alloc::alloc::alloc(layout);
-        C_ALLOCATIONS.insert(allocation, layout);
+        c_allocations.insert(MutPtr(allocation), layout);
         allocation
     }
 }
 
 #[no_mangle]
 pub extern "C" fn calloc(items: usize, size: usize) -> *mut u8 {
+    let mut c_allocations = C_ALLOCATIONS.lock();
     unsafe {
         let layout = Layout::from_size_align(items * size, 1).unwrap();
         let allocation = alloc::alloc::alloc_zeroed(layout);
-        C_ALLOCATIONS.insert(allocation, layout);
+        c_allocations.insert(MutPtr(allocation), layout);
         allocation
     }
 }
@@ -31,19 +40,21 @@ pub extern "C" fn free(ptr: *mut u8) {
     if ptr.is_null() {
         return;
     }
-    unsafe { alloc::alloc::dealloc(ptr, *C_ALLOCATIONS.get(&ptr).unwrap()) }
+    let c_allocations = C_ALLOCATIONS.lock();
+    unsafe { alloc::alloc::dealloc(ptr, *c_allocations.get(&MutPtr(ptr)).unwrap()) }
 }
 
 #[no_mangle]
 pub extern "C" fn realloc(ptr: *mut u8, size: usize) -> *mut u8 {
+    let mut c_allocations = C_ALLOCATIONS.lock();
     unsafe {
         let layout = Layout::from_size_align(size, 1).unwrap();
         let allocation = if ptr.is_null() {
             alloc::alloc::alloc_zeroed(layout)
         } else {
-            alloc::alloc::realloc(ptr, *C_ALLOCATIONS.get(&ptr).unwrap(), size)
+            alloc::alloc::realloc(ptr, *c_allocations.get(&MutPtr(ptr)).unwrap(), size)
         };
-        C_ALLOCATIONS.insert(allocation, layout);
+        c_allocations.insert(MutPtr(allocation), layout);
         allocation
     }
 }
@@ -134,7 +145,7 @@ static mut ERRNO: i32 = 0;
 
 #[no_mangle]
 extern "C" fn __errno_location() -> *mut i32 {
-    unsafe { addr_of_mut!(ERRNO) }
+    addr_of_mut!(ERRNO)
 }
 
 fn cstr_len(ptr: *const u8) -> usize {
