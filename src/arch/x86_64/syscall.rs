@@ -1,3 +1,4 @@
+use crate::fs::OpenFlags;
 use crate::{debug_println, print, return_if};
 use alloc::string::String;
 use alloc::{collections::BTreeMap, string::ToString};
@@ -163,12 +164,12 @@ extern "C" fn open(pathname: *const u8, flags: i32, _mode: i32) -> i32 {
         core::slice::from_raw_parts(pathname, cstr_len(pathname))
     })
     .to_string();
-    crate::fs::open(
-        name,
-        flags & 0o2000 != 0,
-        flags & 0o200 != 0,
-        flags & 0o1000 != 0,
-    ) as i32
+    let open_flags = OpenFlags {
+        append: flags & 0o2000 != 0,
+        exclude: flags & 0o200 != 0,
+        truncate: flags & 0o1000 != 0,
+    };
+    crate::fs::open(name, open_flags) as i32
 }
 
 #[no_mangle]

@@ -1,3 +1,4 @@
+use crate::return_if;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -15,19 +16,23 @@ static NEXT_HANDLE: Mutex<isize> = Mutex::new(3);
 
 //pub fn fs_init() {}
 
-pub fn open(name: String, append: bool, exclude: bool, truncate: bool) -> isize {
+pub struct OpenFlags {
+    pub append: bool,
+    pub exclude: bool,
+    pub truncate: bool,
+}
+
+pub fn open(name: String, open_flags: OpenFlags) -> isize {
     let mut next_handle = NEXT_HANDLE.lock();
     let mut file_system = FILE_SYSTEM.lock();
     let mut handles = HANDLES.lock();
+    return_if!(open_flags.exclude && file_system.get(&name).is_some(), -1);
     let handle = *next_handle;
     *next_handle += 1;
-    if exclude && file_system.get(&name).is_some() {
-        return -1;
-    }
     handles.insert(
         handle,
         OpenFile {
-            position: if append && !truncate {
+            position: if open_flags.append && !open_flags.truncate {
                 match file_system.get(&name) {
                     Some(data) => data.len(),
                     None => 0,

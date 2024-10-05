@@ -3,7 +3,8 @@
     core_intrinsics,
     naked_functions,
     abi_x86_interrupt,
-    pointer_is_aligned_to
+    pointer_is_aligned_to,
+    map_try_insert
 )]
 #![no_std]
 #![no_main]

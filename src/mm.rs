@@ -5,6 +5,9 @@ use crate::return_if;
 pub struct Freelist(*mut Freelist);
 static mut FREELIST: *mut Freelist = null_mut();
 
+#[cfg(target_arch = "x86_64")]
+const PAGE_SIZE: usize = 4096;
+
 #[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/mm.rs")]
 pub mod arch;
 
@@ -15,7 +18,7 @@ pub mod arch;
 /// The memory must not already be in use.
 pub unsafe fn link_page<T>(address: *mut T) {
     #[cfg(target_arch = "x86_64")]
-    return_if!(!address.is_aligned_to(4096));
+    return_if!(!address.is_aligned_to(PAGE_SIZE));
     let page = address as *mut Freelist;
     (*page).0 = FREELIST;
     FREELIST = page;
