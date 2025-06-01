@@ -1,7 +1,6 @@
 #![allow(internal_features)]
 #![feature(
     core_intrinsics,
-    naked_functions,
     abi_x86_interrupt,
     pointer_is_aligned_to,
     map_try_insert
@@ -17,8 +16,7 @@ mod irq;
 mod mm;
 #[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/serial.rs")]
 mod serial;
-#[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/syscall.rs")]
-mod syscall;
+mod clib;
 
 extern crate alloc;
 
@@ -29,11 +27,9 @@ use wasm3::Module;
 
 //static MODULE_REQUEST: ModuleRequest = ModuleRequest::new();
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn _start() -> ! {
-    unsafe {
-        serial::serial_init();
-    }
+    serial::serial_init();
     println!("ok");
     mm::arch::mm_init();
     println!("mm");
@@ -65,16 +61,16 @@ extern "C" fn _start() -> ! {
 }
 
 #[panic_handler]
-unsafe fn rust_panic(info: &PanicInfo) -> ! {
+fn rust_panic(info: &PanicInfo) -> ! {
     println!("{info}");
     hcf()
 }
 
-unsafe fn hcf() -> ! {
+fn hcf() -> ! {
     #[cfg(target_arch = "x86_64")]
-    x86::irq::disable();
+    unsafe { x86::irq::disable(); }
     loop {
         #[cfg(target_arch = "x86_64")]
-        x86::halt();
+        unsafe { x86::halt(); }
     }
 }

@@ -23,9 +23,7 @@ pub fn mm_init() {
         if entry.entry_type != EntryType::USABLE {
             continue;
         }
-        unsafe {
-            free_region(entry.base, entry.length);
-        }
+        free_region(entry.base, entry.length);
     }
     let mut heap_page = 0;
     loop {
@@ -51,7 +49,7 @@ pub fn mm_init() {
 /// # Safety
 ///
 /// Safety rules for `link_page(*mut _)` still apply.
-unsafe fn free_region(base: u64, length: u64) {
+fn free_region(base: u64, length: u64) {
     let mut page = base;
     while page < base + length {
         link_page(page as *mut u8);
@@ -64,7 +62,7 @@ unsafe fn free_region(base: u64, length: u64) {
 /// # Safety
 ///
 /// Pagemap must be a valid PML4.
-pub unsafe fn map_page(pagemap: u64, v_address: u64, p_address: u64, flags: u64, size: u64) {
+pub fn map_page(pagemap: u64, v_address: u64, p_address: u64, flags: u64, size: u64) {
     match size {
         4096 => {
             let level3 = get_next_level(pagemap, v_address, 3);
@@ -73,7 +71,7 @@ pub unsafe fn map_page(pagemap: u64, v_address: u64, p_address: u64, flags: u64,
             return_if!(level2 == 0);
             let level1 = get_next_level(level2, v_address, 1);
             return_if!(level1 == 0);
-            (*(level1 as *mut [u64; 512]))[(v_address as usize >> 12) & 0x1FF] = p_address | flags;
+            unsafe { (*(level1 as *mut [u64; 512]))[(v_address as usize >> 12) & 0x1FF] = p_address | flags; }
         }
         _ => panic!("invalid page size"),
     }
@@ -84,14 +82,16 @@ pub unsafe fn map_page(pagemap: u64, v_address: u64, p_address: u64, flags: u64,
 /// # Safety
 ///
 /// Pagemap must be valid.
-pub unsafe fn get_next_level(pagemap: u64, v_address: u64, level: u64) -> u64 {
-    let result = (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF];
+pub fn get_next_level(pagemap: u64, v_address: u64, level: u64) -> u64 {
+    let result = unsafe { (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF] };
     if result & 1 == 0 {
         let page = unlink_page::<[u64; 512]>();
         return_if!(page.is_null(), 0);
-        (*page).fill(0);
-        (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF] =
-            page as u64 | 7;
+        unsafe {
+            (*page).fill(0);
+            (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF] =
+                page as u64 | 7;
+        }
         return page as u64;
     }
     result & !0xFFF

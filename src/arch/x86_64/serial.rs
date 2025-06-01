@@ -8,20 +8,22 @@ const COM1: u16 = 0x3f8;
 /// # Safety
 ///
 /// Uses port I/O but shouldn't cause problems.
-pub unsafe fn serial_init() {
-    outb(COM1 + 1, 0);
-    outb(COM1 + 3, 0x80);
-    outb(COM1, 0x03);
-    outb(COM1 + 1, 0);
-    outb(COM1 + 3, 0x03);
-    outb(COM1 + 2, 0xC7);
-    outb(COM1 + 4, 0x03);
-    outb(COM1 + 4, 0x1E);
-    outb(COM1, 0xAE);
-    if inb(COM1) != 0xAE {
-        return;
+pub fn serial_init() {
+    unsafe {
+        outb(COM1 + 1, 0);
+        outb(COM1 + 3, 0x80);
+        outb(COM1, 0x03);
+        outb(COM1 + 1, 0);
+        outb(COM1 + 3, 0x03);
+        outb(COM1 + 2, 0xC7);
+        outb(COM1 + 4, 0x03);
+        outb(COM1 + 4, 0x1E);
+        outb(COM1, 0xAE);
+        if inb(COM1) != 0xAE {
+            return;
+        }
+        outb(COM1 + 4, 0x03);
     }
-    outb(COM1 + 4, 0x03);
 }
 
 /// Sends a byte to COM1.
@@ -29,9 +31,11 @@ pub unsafe fn serial_init() {
 /// # Safety
 ///
 /// Uses port I/O but shouldn't cause problems.
-pub unsafe fn serial_send(byte: u8) {
-    while inb(COM1 + 5) & 0x20 == 0 {}
-    outb(COM1, byte);
+pub fn serial_send(byte: u8) {
+    unsafe {
+        while inb(COM1 + 5) & 0x20 == 0 {}
+        outb(COM1, byte);
+    }
 }
 
 use core::fmt;
@@ -43,9 +47,7 @@ static SERIAL_WRITER: Mutex<SerialWriter> = Mutex::new(SerialWriter {});
 impl fmt::Write for SerialWriter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for c in s.as_bytes() {
-            unsafe {
-                serial_send(*c);
-            }
+            serial_send(*c);
         }
         Ok(())
     }
