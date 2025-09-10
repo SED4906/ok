@@ -84,62 +84,62 @@ extern "C" fn __stack_chk_fail() -> ! {
 
 #[unsafe(no_mangle)]
 extern "C" fn copysign(mag: f64, sgn: f64) -> f64 {
-    unsafe { core::intrinsics::copysignf64(mag, sgn) }
+    mag.copysign(sgn)
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn copysignf(mag: f32, sgn: f32) -> f32 {
-    unsafe { core::intrinsics::copysignf32(mag, sgn) }
+    mag.copysign(sgn)
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn floor(val: f64) -> f64 {
-    unsafe { core::intrinsics::floorf64(val) }
+    core::f64::math::floor(val)
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn floorf(val: f32) -> f32 {
-    unsafe { core::intrinsics::floorf32(val) }
+    core::f32::math::floor(val)
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn ceil(val: f64) -> f64 {
-    unsafe { core::intrinsics::ceilf64(val) }
+    core::f64::math::ceil(val)
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn ceilf(val: f32) -> f32 {
-    unsafe { core::intrinsics::ceilf32(val) }
+    core::f32::math::ceil(val)
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn sqrt(val: f64) -> f64 {
-    unsafe { core::intrinsics::sqrtf64(val) }
+    core::f64::math::sqrt(val)
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn sqrtf(val: f32) -> f32 {
-    unsafe { core::intrinsics::sqrtf32(val) }
+    core::f32::math::sqrt(val)
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn trunc(val: f64) -> f64 {
-    unsafe { core::intrinsics::truncf64(val) }
+    core::f64::math::trunc(val)
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn truncf(val: f32) -> f32 {
-    unsafe { core::intrinsics::truncf32(val) }
+    core::f32::math::trunc(val)
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn rint(val: f64) -> f64 {
-    unsafe { core::intrinsics::rintf64(val) }
+    core::f64::math::round(val)
 }
 
 #[unsafe(no_mangle)]
 extern "C" fn rintf(val: f32) -> f32 {
-    unsafe { core::intrinsics::rintf32(val) }
+    core::f32::math::round(val)
 }
 
 static mut ERRNO: i32 = 0;

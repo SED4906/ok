@@ -1,6 +1,5 @@
-#![allow(internal_features)]
 #![feature(
-    core_intrinsics,
+    core_float_math,
     abi_x86_interrupt,
     pointer_is_aligned_to,
     map_try_insert

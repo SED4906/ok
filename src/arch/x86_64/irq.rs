@@ -4,7 +4,7 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, Pag
 static IDT: Mutex<InterruptDescriptorTable> = Mutex::new(InterruptDescriptorTable::new());
 
 pub fn irq_init() {
-    let mut idt: spin::MutexGuard<'_, InterruptDescriptorTable> = IDT.lock();
+    let mut idt = IDT.lock();
     unsafe {
         idt.alignment_check.set_handler_fn(alignment_check);
         idt.bound_range_exceeded
