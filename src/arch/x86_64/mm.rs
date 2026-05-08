@@ -1,4 +1,3 @@
-use limine::memory_map::EntryType;
 use linked_list_allocator::LockedHeap;
 use x86::controlregs::cr3;
 
@@ -6,7 +5,7 @@ use crate::return_if;
 
 use super::{link_page, unlink_page};
 
-static MEMMAP_REQUEST: limine::request::MemoryMapRequest = limine::request::MemoryMapRequest::new();
+static MEMMAP_REQUEST: limine::request::MemmapRequest = limine::request::MemmapRequest::new();
 const HEAP_START: u64 = 320u64 << 39;
 //const HEAP_DEFAULT_SIZE: usize = 4096usize * 1024;
 #[global_allocator]
@@ -18,9 +17,9 @@ static HEAP: LockedHeap = LockedHeap::empty();
 ///
 /// Should be safe as long as what Limine reports is correct.
 pub fn mm_init() {
-    let entries = MEMMAP_REQUEST.get_response().unwrap().entries();
+    let entries = MEMMAP_REQUEST.response().unwrap().entries();
     for entry in entries {
-        if entry.entry_type != EntryType::USABLE {
+        if entry.type_ != limine::memmap::MEMMAP_USABLE {
             continue;
         }
         free_region(entry.base, entry.length);
@@ -71,7 +70,10 @@ pub fn map_page(pagemap: u64, v_address: u64, p_address: u64, flags: u64, size: 
             return_if!(level2 == 0);
             let level1 = get_next_level(level2, v_address, 1);
             return_if!(level1 == 0);
-            unsafe { (*(level1 as *mut [u64; 512]))[(v_address as usize >> 12) & 0x1FF] = p_address | flags; }
+            unsafe {
+                (*(level1 as *mut [u64; 512]))[(v_address as usize >> 12) & 0x1FF] =
+                    p_address | flags;
+            }
         }
         _ => panic!("invalid page size"),
     }
@@ -83,7 +85,9 @@ pub fn map_page(pagemap: u64, v_address: u64, p_address: u64, flags: u64, size: 
 ///
 /// Pagemap must be valid.
 pub fn get_next_level(pagemap: u64, v_address: u64, level: u64) -> u64 {
-    let result = unsafe { (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF] };
+    let result = unsafe {
+        (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF]
+    };
     if result & 1 == 0 {
         let page = unlink_page::<[u64; 512]>();
         return_if!(page.is_null(), 0);

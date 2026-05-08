@@ -279,7 +279,9 @@ extern "C" fn getrandom() -> u64 {
             #[cfg(target_arch = "x86_64")]
             x86::random::rdrand64(&mut random_value);
         } else {
-            panic!("getrandom: gambling? no. ( https://www.youtube.com/watch?v=dm3ZQ73LbuQ&t=17m35s )");
+            panic!(
+                "getrandom: gambling? no. ( https://www.youtube.com/watch?v=dm3ZQ73LbuQ&t=17m35s )"
+            );
         }
     }
     random_value
