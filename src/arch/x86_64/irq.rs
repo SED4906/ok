@@ -1,4 +1,5 @@
 use spin::Mutex;
+use x86::io::outb;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 static IDT: Mutex<InterruptDescriptorTable> = Mutex::new(InterruptDescriptorTable::new());
@@ -36,6 +37,7 @@ pub fn irq_init() {
         idt.vmm_communication_exception
             .set_handler_fn(vmm_communication_exception);
         idt.x87_floating_point.set_handler_fn(x87_floating_point);
+        idt[32].set_handler_fn(pit_timer);
         idt.load_unsafe();
     }
 }
@@ -133,4 +135,11 @@ extern "x86-interrupt" fn vmm_communication_exception(
 
 extern "x86-interrupt" fn x87_floating_point(_stack: InterruptStackFrame) {
     panic!("Unhandled interrupt");
+}
+
+pub static mut TIMER: usize = 0;
+
+extern "x86-interrupt" fn pit_timer(_stack: InterruptStackFrame) {
+    unsafe { TIMER += 1 };
+    unsafe { outb(0x20, 0x20) };
 }

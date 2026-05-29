@@ -5,71 +5,76 @@
 #[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/cpu.rs")]
 mod cpu;
 mod fs;
+mod gfx;
 mod helper;
 mod irq;
 mod mm;
 #[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/serial.rs")]
 mod serial;
+mod wasi;
 
 extern crate alloc;
 
-use alloc::string::String;
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use core::panic::PanicInfo;
-use wasmi::{Caller, Engine, Extern, Linker, Module, Store};
+use wasmi::{Engine, Linker, Module, Store};
 
-//static MODULE_REQUEST: ModuleRequest = ModuleRequest::new();
+static MODULE_REQUEST: limine::request::ModulesRequest = limine::request::ModulesRequest::new();
+static CMDLINE_REQUEST: limine::request::ExecutableCmdlineRequest =
+    limine::request::ExecutableCmdlineRequest::new();
 
 #[unsafe(no_mangle)]
 extern "C" fn _start() -> ! {
     serial::serial_init();
     println!("ok");
+    gfx::framebuffer::framebuffer_init();
+    gprintln!("ok");
     mm::arch::mm_init();
-    println!("mm");
+    gprintln!("mm");
     irq::arch::irq_init();
-    println!("irq");
+    gprintln!("irq");
     cpu::cpu_init();
-    println!("cpu");
-    // Language runtime below
-    let engine = Engine::default();
-    let module = Module::new(&engine, &include_bytes!("wasm_print.wasm")[..])
-        .expect("Unable to parse wasm module");
-    let mut store = Store::new(&engine, ());
-    let mut linker = <Linker<()>>::new(&engine);
-    linker
-        .func_wrap(
-            "wasi_snapshot_preview1",
-            "fd_write",
-            |mut caller: Caller<'_, ()>, fd: i32, iovs: i32, iovs_len: i32, nwritten: i32| {
-                let Some(Extern::Memory(memory)) = caller.get_export("memory") else {
-                    return Err(wasmi::Error::new("missing required WASI memory export"));
-                };
-                let (memory, _) = memory.data_and_store_mut(&mut caller);
-                let mut count = 0i32;
-                for iov_index in 0..iovs_len {
-                    let iov = (iovs + iov_index * 8) as usize;
-                    let base =
-                        u32::from_le_bytes(memory[iov..iov + 4].try_into().unwrap()) as usize;
-                    let size =
-                        u32::from_le_bytes(memory[iov + 4..iov + 8].try_into().unwrap()) as usize;
-                    let slice = &memory[base..base + size];
-                    match fd {
-                        0 => {}
-                        1 | 2 => {
-                            print!("{}", String::from_utf8_lossy(&slice));
-                            count += size as i32;
-                        }
-                        handle => {
-                            let written = fs::write(handle as isize, &slice) as i32;
-                            count += written;
-                        }
+    gprintln!("cpu");
+    let mut code_bytes = include_bytes!("wasm_print.wasm").to_vec();
+    let mut code_envs = vec![];
+    let mut code_args = vec![];
+    if let Some(response) = MODULE_REQUEST.response() {
+        for module in response.modules() {
+            if module.cmdline().is_empty() {
+                code_bytes = module.data().to_vec();
+            } else if module.cmdline() == "/etc/profile" {
+                for line in String::from_utf8_lossy(module.data()).lines() {
+                    if let Some(_) = line.split_once('=') {
+                        code_envs.push(line.to_owned());
                     }
                 }
-                memory[nwritten as usize..nwritten as usize + 4]
-                    .copy_from_slice(&count.to_le_bytes());
-                Ok(0)
-            },
-        )
-        .expect("failed to wrap fd_write");
+            } else {
+                fs::preload(module.cmdline().into(), module.data().to_vec());
+            }
+        }
+    }
+    if let Some(response) = CMDLINE_REQUEST.response() {
+        code_args.append(
+            &mut response
+                .cmdline()
+                .split_ascii_whitespace()
+                .map(|s| s.to_string())
+                .collect(),
+        );
+    } else {
+        code_args.push("init".to_string());
+    }
+    // Language runtime below
+    let engine = Engine::default();
+    let module = Module::new(&engine, code_bytes).expect("Unable to parse wasm module");
+    let mut store = Store::new(&engine, (code_args, code_envs));
+    let mut linker = <Linker<(Vec<String>, Vec<String>)>>::new(&engine);
+    wasi::link_wasi(&mut linker);
     let instance = linker
         .instantiate_and_start(&mut store, &module)
         .expect("Unable to instantiate");
@@ -90,6 +95,16 @@ extern "C" fn _start() -> ! {
 #[panic_handler]
 fn rust_panic(info: &PanicInfo) -> ! {
     println!("{info}");
+    gprintln!();
+    gprintln!("                             ");
+    gprintln!("                             ");
+    gprintln!("    FLAGRANT SYSTEM ERROR    ");
+    gprintln!("       Computer over.        ");
+    gprintln!("      Panic = Very Yes.      ");
+    gprintln!("                             ");
+    gprintln!("                             ");
+    gprintln!("                             ");
+    gprintln!("{info}");
     hcf()
 }
 
