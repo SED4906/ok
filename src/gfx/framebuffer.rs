@@ -1,5 +1,6 @@
-pub static FONT: &[u8] = include_bytes!("FM-TOWNS.F08");
-const FONT_HEIGHT: usize = 8;
+pub static FONT: &[u8] = include_bytes!("bytesized.bin");
+const FONT_WIDTH: usize = 3;
+const FONT_HEIGHT: usize = 4;
 
 use spin::mutex::Mutex;
 
@@ -11,7 +12,8 @@ pub static FRAMEBUFFER: Mutex<Option<Framebuffer>> = Mutex::new(None);
 pub fn framebuffer_init() {
     if let Some(framebuffer_response) = FRAMEBUFFER_REQUEST.response() {
         if framebuffer_response.framebuffers().len() < 1 {
-            crate::hcf()
+            println!("no framebuffers?");
+            crate::cpu::hcf()
         }
         // Get the first framebuffer's information.
         let response = &framebuffer_response.framebuffers()[0];
@@ -24,7 +26,8 @@ pub fn framebuffer_init() {
         });
         println!("{framebuffer:?}");
     } else {
-        crate::hcf()
+        println!("no framebuffers!");
+        crate::cpu::hcf()
     }
 }
 
@@ -153,13 +156,11 @@ impl Framebuffer {
     }
 
     pub fn character(&self, x: usize, y: usize, c: u8, color: u32) {
+        let c = if c < 32 || c > 127 { 32 } else { c - 32 };
         for py in y..y + FONT_HEIGHT {
-            for px in x..x + 8 {
-                if crate::gfx::framebuffer::FONT
-                    [(c as usize) * FONT_HEIGHT + py as usize - y as usize]
-                    & (128 >> (px - x))
-                    != 0
-                {
+            for px in x..x + FONT_WIDTH {
+                let bit = c as usize * FONT_HEIGHT * FONT_WIDTH + (px - x) + (py - y) * FONT_WIDTH;
+                if crate::gfx::framebuffer::FONT[bit / 8] & (128 >> (bit % 8)) != 0 {
                     self.pixel(px, py, color);
                 }
             }
@@ -181,8 +182,7 @@ impl Framebuffer {
             match c {
                 8 => line_length -= 1,
                 9 => {
-                    line_length += 8;
-                    line_length &= !7;
+                    line_length += 8 - (line_length % 8);
                 }
                 13 => line_length = 0,
                 10 => {
@@ -190,7 +190,7 @@ impl Framebuffer {
                     line += 1;
                 }
                 _ => {
-                    self.character(x + line_length * 8, y + line * 8, *c, color);
+                    self.character(x + line_length * 4, y + line * 5, *c, color);
                     line_length += 1;
                 }
             };

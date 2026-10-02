@@ -432,7 +432,7 @@ pub fn link_wasi(linker: &mut Linker<(Vec<String>, Vec<String>)>) {
                 };
                 let (memory, _) = memory.data_and_store_mut(&mut caller);
                 memory[result as usize..result as usize + 8].copy_from_slice(
-                    &(unsafe { crate::irq::arch::TIMER * 10000000 }).to_le_bytes(),
+                    &(crate::cpu::irq::TIMER.load(core::sync::atomic::Ordering::Relaxed) * 10000000).to_le_bytes(),
                 );
                 Ok(0)
             },

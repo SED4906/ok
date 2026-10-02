@@ -2,15 +2,11 @@
 #![no_std]
 #![no_main]
 
-#[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/cpu.rs")]
-mod cpu;
+mod arch;
+use arch::cpu;
 mod fs;
 mod gfx;
-mod helper;
-mod irq;
 mod mm;
-#[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/serial.rs")]
-mod serial;
 mod wasi;
 
 extern crate alloc;
@@ -30,16 +26,16 @@ static CMDLINE_REQUEST: limine::request::ExecutableCmdlineRequest =
 
 #[unsafe(no_mangle)]
 extern "C" fn _start() -> ! {
-    serial::serial_init();
+    cpu::serial::serial_init();
     println!("ok");
     gfx::framebuffer::framebuffer_init();
     gprintln!("ok");
-    mm::arch::mm_init();
+    cpu::mm::mm_init();
     gprintln!("mm");
-    irq::arch::irq_init();
+    cpu::irq::irq_init();
     gprintln!("irq");
-    cpu::cpu_init();
-    gprintln!("cpu");
+    cpu::timer::timer_init();
+    gprintln!("timer");
     let mut code_bytes = include_bytes!("wasm_print.wasm").to_vec();
     let mut code_envs = vec![];
     let mut code_args = vec![];
@@ -85,10 +81,7 @@ extern "C" fn _start() -> ! {
     // Language runtime above
     println!("done!");
     loop {
-        unsafe {
-            #[cfg(target_arch = "x86_64")]
-            x86::halt();
-        }
+        cpu::wfe()
     }
 }
 
@@ -105,18 +98,5 @@ fn rust_panic(info: &PanicInfo) -> ! {
     gprintln!("                             ");
     gprintln!("                             ");
     gprintln!("{info}");
-    hcf()
-}
-
-fn hcf() -> ! {
-    #[cfg(target_arch = "x86_64")]
-    unsafe {
-        x86::irq::disable();
-    }
-    loop {
-        #[cfg(target_arch = "x86_64")]
-        unsafe {
-            x86::halt();
-        }
-    }
+    cpu::hcf()
 }

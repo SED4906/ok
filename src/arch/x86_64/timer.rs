@@ -3,7 +3,7 @@ use x86::io::{inb, outb};
 const PIC1: u16 = 0x20;
 const PIC2: u16 = 0xA0;
 
-pub fn cpu_init() {
+pub fn timer_init() {
     unsafe {
         outb(PIC1, 0x11);
         outb(PIC2, 0x11);

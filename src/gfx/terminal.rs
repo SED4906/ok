@@ -1,58 +1,70 @@
-use core::fmt;
+use core::{
+    fmt,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 use spin::Mutex;
 
 pub struct Writer {}
 static WRITER: Mutex<Writer> = Mutex::new(Writer {});
-pub static mut COL: usize = 0;
-pub static mut ROW: usize = 0;
+pub static COL: AtomicUsize = AtomicUsize::new(0);
+pub static ROW: AtomicUsize = AtomicUsize::new(0);
 
 impl fmt::Write for Writer {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let framebuffer = crate::gfx::framebuffer::FRAMEBUFFER.lock();
         if let Some(framebuffer) = &*framebuffer {
             for c in s.as_bytes() {
-                unsafe {
-                    match c {
-                        8 => {
-                            COL = COL.saturating_sub(1);
-                        }
-                        9 => {
-                            COL += 8;
-                            if COL >= framebuffer.width / 8 {
-                                COL = 0;
-                                ROW += 1;
-                                if ROW >= framebuffer.height / 8 {
-                                    ROW = 0;
-                                }
+                match c {
+                    8 => {
+                        COL.store(
+                            COL.load(Ordering::Relaxed).saturating_sub(1),
+                            Ordering::Relaxed,
+                        );
+                    }
+                    9 => {
+                        COL.store(
+                            COL.load(Ordering::Relaxed) + 8 - (COL.load(Ordering::Relaxed) % 8),
+                            Ordering::Relaxed,
+                        );
+                        if COL.load(Ordering::Relaxed) >= framebuffer.width / 4 {
+                            COL.store(0, Ordering::Relaxed);
+                            ROW.fetch_add(1, Ordering::Relaxed);
+                            if ROW.load(Ordering::Relaxed) >= framebuffer.height / 5 {
+                                ROW.store(0, Ordering::Relaxed);
                             }
                         }
-                        13 => {
-                            COL = 0;
+                    }
+                    13 => {
+                        COL.store(0, Ordering::Relaxed);
+                    }
+                    10 => {
+                        COL.store(0, Ordering::Relaxed);
+                        ROW.fetch_add(1, Ordering::Relaxed);
+                        if ROW.load(Ordering::Relaxed) >= framebuffer.height / 5 {
+                            ROW.store(0, Ordering::Relaxed);
                         }
-                        10 => {
-                            COL = 0;
-                            ROW += 1;
-                            if ROW >= framebuffer.height / 8 {
-                                ROW = 0;
-                            }
-                        }
-                        _ => {
-                            framebuffer.rect(
-                                COL * 8,
-                                ROW * 8,
-                                COL * 8 + 8,
-                                ROW * 8 + 8,
-                                0x00000000,
-                                0x00000000,
-                            );
-                            framebuffer.character(COL * 8, ROW * 8, *c, 0xFFFFFFFF);
-                            COL += 1;
-                            if COL >= framebuffer.width / 8 {
-                                COL = 0;
-                                ROW += 1;
-                                if ROW >= framebuffer.height / 8 {
-                                    ROW = 0;
-                                }
+                    }
+                    _ => {
+                        framebuffer.rect(
+                            COL.load(Ordering::Relaxed) * 4,
+                            ROW.load(Ordering::Relaxed) * 5,
+                            COL.load(Ordering::Relaxed) * 4 + 4,
+                            ROW.load(Ordering::Relaxed) * 5 + 5,
+                            0x00000000,
+                            0x00000000,
+                        );
+                        framebuffer.character(
+                            COL.load(Ordering::Relaxed) * 4,
+                            ROW.load(Ordering::Relaxed) * 5,
+                            *c,
+                            0xFFFFFFFF,
+                        );
+                        COL.fetch_add(1, Ordering::Relaxed);
+                        if COL.load(Ordering::Relaxed) >= framebuffer.width / 5 {
+                            COL.store(0, Ordering::Relaxed);
+                            ROW.fetch_add(1, Ordering::Relaxed);
+                            if ROW.load(Ordering::Relaxed) >= framebuffer.height / 5 {
+                                ROW.store(0, Ordering::Relaxed);
                             }
                         }
                     }

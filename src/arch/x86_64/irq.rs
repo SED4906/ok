@@ -1,3 +1,5 @@
+use core::sync::atomic::{AtomicUsize, Ordering};
+
 use spin::Mutex;
 use x86::io::outb;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
@@ -137,9 +139,9 @@ extern "x86-interrupt" fn x87_floating_point(_stack: InterruptStackFrame) {
     panic!("Unhandled interrupt");
 }
 
-pub static mut TIMER: usize = 0;
+pub static TIMER: AtomicUsize = AtomicUsize::new(0);
 
 extern "x86-interrupt" fn pit_timer(_stack: InterruptStackFrame) {
-    unsafe { TIMER += 1 };
+    TIMER.fetch_add(1, Ordering::Relaxed);
     unsafe { outb(0x20, 0x20) };
 }

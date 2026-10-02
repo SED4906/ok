@@ -1,8 +1,4 @@
-#[cfg(target_arch = "x86_64")]
-const PAGE_SIZE: usize = 4096;
-
-#[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/mm.rs")]
-pub mod arch;
+use crate::cpu::mm::PAGE_SIZE;
 
 use core::{
     ptr::null_mut,
@@ -12,7 +8,7 @@ use core::{
 static FREELIST: AtomicPtr<()> = AtomicPtr::new(null_mut());
 
 pub fn link_page<T>(page: *mut T) {
-    assert!(!page.is_null() && page.addr().is_multiple_of(PAGE_SIZE));
+    assert!(!page.is_null() && page.addr().is_multiple_of(PAGE_SIZE as usize));
     unsafe {
         *page.cast() = FREELIST.swap(page.cast(), Ordering::Relaxed);
     }

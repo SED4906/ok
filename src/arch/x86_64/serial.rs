@@ -51,7 +51,7 @@ pub fn _serial_print(args: fmt::Arguments) {
 
 #[macro_export]
 macro_rules! print {
-    ($($t:tt)*) => { $crate::serial::_serial_print(format_args!($($t)*)) };
+    ($($t:tt)*) => { $crate::cpu::serial::_serial_print(format_args!($($t)*)) };
 }
 
 #[macro_export]

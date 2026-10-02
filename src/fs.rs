@@ -1,5 +1,4 @@
 use crate::gfx::framebuffer::FRAMEBUFFER;
-use crate::return_if;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -60,7 +59,9 @@ pub fn open(name: String, open_flags: OpenFlags) -> isize {
     let mut next_handle = NEXT_HANDLE.lock();
     let mut file_system = FILE_SYSTEM.lock();
     let mut handles = HANDLES.lock();
-    return_if!(open_flags.exclude && file_system.get(&name).is_some(), -1);
+    if open_flags.exclude && file_system.get(&name).is_some() {
+        return -1;
+    }
     let handle = *next_handle;
     *next_handle += 1;
     if handle == 5 {
