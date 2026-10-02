@@ -1,21 +1,15 @@
 use linked_list_allocator::LockedHeap;
 use x86::controlregs::cr3;
 
-use crate::return_if;
+use crate::{println, return_if};
 
 use super::{link_page, unlink_page};
 
 static MEMMAP_REQUEST: limine::request::MemmapRequest = limine::request::MemmapRequest::new();
 const HEAP_START: u64 = 320u64 << 39;
-//const HEAP_DEFAULT_SIZE: usize = 4096usize * 1024;
 #[global_allocator]
 static HEAP: LockedHeap = LockedHeap::empty();
 
-/// Initializes the freelist.
-///
-/// # Safety
-///
-/// Should be safe as long as what Limine reports is correct.
 pub fn mm_init() {
     let entries = MEMMAP_REQUEST.response().unwrap().entries();
     for entry in entries {
@@ -41,13 +35,9 @@ pub fn mm_init() {
             (heap_page * 4096) as usize,
         )
     };
+    println!("{} KiB heap space", heap_page * 4);
 }
 
-/// Frees a contiguous region of memory.
-///
-/// # Safety
-///
-/// Safety rules for `link_page(*mut _)` still apply.
 fn free_region(base: u64, length: u64) {
     let mut page = base;
     while page < base + length {
@@ -56,11 +46,6 @@ fn free_region(base: u64, length: u64) {
     }
 }
 
-/// Maps a physical page to a virtual page.
-///
-/// # Safety
-///
-/// Pagemap must be a valid PML4.
 pub fn map_page(pagemap: u64, v_address: u64, p_address: u64, flags: u64, size: u64) {
     match size {
         4096 => {
@@ -79,11 +64,6 @@ pub fn map_page(pagemap: u64, v_address: u64, p_address: u64, flags: u64, size: 
     }
 }
 
-/// Gets an entry from a pagemap, creating one if it is not present.
-///
-/// # Safety
-///
-/// Pagemap must be valid.
 pub fn get_next_level(pagemap: u64, v_address: u64, level: u64) -> u64 {
     let result = unsafe {
         (*(pagemap as *mut [u64; 512]))[(v_address as usize >> (12 + 9 * level)) & 0x1FF]

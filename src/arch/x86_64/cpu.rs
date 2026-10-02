@@ -1,7 +1,4 @@
-use x86::{
-    controlregs::{Cr0, Cr4, cr0, cr0_write, cr4, cr4_write},
-    io::{inb, outb},
-};
+use x86::io::{inb, outb};
 
 const PIC1: u16 = 0x20;
 const PIC2: u16 = 0xA0;

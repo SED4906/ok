@@ -15,8 +15,6 @@ static FILE_SYSTEM: Mutex<BTreeMap<String, Vec<u8>>> = Mutex::new(BTreeMap::new(
 static HANDLES: Mutex<BTreeMap<isize, OpenFile>> = Mutex::new(BTreeMap::new());
 static NEXT_HANDLE: Mutex<isize> = Mutex::new(5);
 
-//pub fn fs_init() {}
-
 pub struct OpenFlags {
     pub append: bool,
     pub exclude: bool,

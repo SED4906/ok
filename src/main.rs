@@ -1,4 +1,4 @@
-#![feature(abi_x86_interrupt, pointer_is_aligned_to)]
+#![feature(abi_x86_interrupt)]
 #![no_std]
 #![no_main]
 

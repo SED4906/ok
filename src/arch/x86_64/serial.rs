@@ -2,12 +2,6 @@ use x86::io::{inb, outb};
 
 const COM1: u16 = 0x3f8;
 
-/// Initializes the COM1 serial port.
-/// Silently returns if the port doesn't work.
-///
-/// # Safety
-///
-/// Uses port I/O but shouldn't cause problems.
 pub fn serial_init() {
     unsafe {
         outb(COM1 + 1, 0);
@@ -26,11 +20,6 @@ pub fn serial_init() {
     }
 }
 
-/// Sends a byte to COM1.
-///
-/// # Safety
-///
-/// Uses port I/O but shouldn't cause problems.
 pub fn serial_send(byte: u8) {
     unsafe {
         while inb(COM1 + 5) & 0x20 == 0 {}

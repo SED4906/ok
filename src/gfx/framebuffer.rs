@@ -1,7 +1,5 @@
 pub static FONT: &[u8] = include_bytes!("FM-TOWNS.F08");
 const FONT_HEIGHT: usize = 8;
-//pub static FONT: &[u8] = include_bytes!("unifont.bin");
-use core::usize;
 
 use spin::mutex::Mutex;
 

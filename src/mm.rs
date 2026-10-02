@@ -1,41 +1,28 @@
-use core::ptr::null_mut;
-
-use crate::return_if;
-
-pub struct Freelist(*mut Freelist);
-static mut FREELIST: *mut Freelist = null_mut();
-
 #[cfg(target_arch = "x86_64")]
 const PAGE_SIZE: usize = 4096;
 
 #[cfg_attr(target_arch = "x86_64", path = "arch/x86_64/mm.rs")]
 pub mod arch;
 
-/// Links a page to the freelist.
-///
-/// # Safety
-///
-/// The memory must not already be in use.
-pub fn link_page<T>(address: *mut T) {
+use core::{
+    ptr::null_mut,
+    sync::atomic::{AtomicPtr, Ordering},
+};
+
+static FREELIST: AtomicPtr<()> = AtomicPtr::new(null_mut());
+
+pub fn link_page<T>(page: *mut T) {
+    assert!(!page.is_null() && page.addr().is_multiple_of(PAGE_SIZE));
     unsafe {
-        #[cfg(target_arch = "x86_64")]
-        return_if!(!address.is_aligned_to(PAGE_SIZE));
-        let page = address as *mut Freelist;
-        (*page).0 = FREELIST;
-        FREELIST = page;
+        *page.cast() = FREELIST.swap(page.cast(), Ordering::Relaxed);
     }
 }
 
-/// Unlinks a page from the freelist.
-///
-/// # Safety
-///
-/// Returns `null_mut()` if the freelist runs out of memory.
 pub fn unlink_page<T>() -> *mut T {
-    unsafe {
-        return_if!(FREELIST.is_null(), null_mut());
-        let address = FREELIST as *mut _;
-        FREELIST = (*FREELIST).0;
-        address
-    }
+    FREELIST.update(Ordering::SeqCst, Ordering::SeqCst, |p| {
+        if !p.is_null() {
+            return unsafe { *p.cast() };
+        }
+        p
+    }).cast()
 }
